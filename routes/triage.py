@@ -4,7 +4,12 @@ from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
 
-from llm.client import generate_response
+from llm.client import (
+    LLMProviderError,
+    LLMTimeoutError,
+    generate_response,
+    LLM_ENABLED,
+)
 from prompts.triage import TRIAGE_PROMPT, TRIAGE_PROMPT_VERSION
 from src.schemas import TriageRequest, TriageResult
 
@@ -49,16 +54,42 @@ def quarantine_output(
     with open(logs_dir / "quarantine.jsonl", "a", encoding="utf-8") as file:
         file.write(json.dumps(record, ensure_ascii=False) + "\n")
 
+def deterministic_fallback() -> TriageResult:
+    return TriageResult(
+        category="other",
+        urgency="normal",
+        confidence=0.0,
+        reason="LLM processing is disabled.",
+    )
 
 @router.post("/triage", response_model=TriageResult)
 def triage(request: TriageRequest):
+    if not LLM_ENABLED:
+        return deterministic_fallback()
+
     prompt = TRIAGE_PROMPT.format(message=request.text)
 
-    # First model attempt
-    raw_response = generate_response(prompt)
+    try:
+        # First model attempt
+        raw_response = generate_response(
+            prompt,
+            prompt_version=TRIAGE_PROMPT_VERSION,
+            repair_count=0,
+        )
+    except LLMTimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="LLM request timed out.",
+        )
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        )
 
     try:
         return parse_model_output(raw_response)
+
     except (json.JSONDecodeError, ValueError) as first_error:
         validation_error = str(first_error)
 
@@ -77,10 +108,26 @@ Validation error:
 Your previous answer was rejected for this reason. Return only corrected JSON matching the schema.
 """.strip()
 
-    repaired_response = generate_response(repair_prompt)
+    try:
+        repaired_response = generate_response(
+            repair_prompt,
+            prompt_version=TRIAGE_PROMPT_VERSION,
+            repair_count=1,
+        )
+    except LLMTimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail="LLM repair request timed out.",
+        )
+    except LLMProviderError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=str(exc),
+        )
 
     try:
         return parse_model_output(repaired_response)
+
     except (json.JSONDecodeError, ValueError) as second_error:
         quarantine_output(
             input_text=request.text,
