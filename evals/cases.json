@@ -1,0 +1,58 @@
+[
+  {
+    "id": "billing_1",
+    "text": "I was charged twice for my subscription.",
+    "expected": {
+      "category": "billing"
+    }
+  },
+  {
+    "id": "bug_1",
+    "text": "The checkout page crashes every time I click the Pay button.",
+    "expected": {
+      "category": "bug"
+    }
+  },
+  {
+    "id": "feature_1",
+    "text": "Please add dark mode to the dashboard.",
+    "expected": {
+      "category": "feature"
+    }
+  },
+  {
+    "id": "other_1",
+    "text": "What are your customer support hours?",
+    "expected": {
+      "category": "other"
+    }
+  },
+  {
+    "id": "billing_2",
+    "text": "I don't recognize this $49 charge on my account.",
+    "expected": {
+      "category": "billing"
+    }
+  },
+  {
+    "id": "bug_2",
+    "text": "My password reset link says it has expired even though I just requested it.",
+    "expected": {
+      "category": "bug"
+    }
+  },
+  {
+    "id": "ambiguous_1",
+    "text": "The app isn't working properly and I need help.",
+    "expected": {
+      "category": "other"
+    }
+  },
+  {
+    "id": "unsure_1",
+    "text": "I have a question about something.",
+    "expected": {
+      "category": "other"
+    }
+  }
+]
